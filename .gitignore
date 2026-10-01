@@ -1,0 +1,39 @@
+# --- secrets -------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets.json
+
+# --- generated data (reproducible: `python data/generate.py`) -------------
+data/*.csv
+
+# --- trained model artifacts (reproducible: `python -m ml.train`) ---------
+ml/artifacts/
+ml/_panel_cache.npz
+
+# --- python --------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# --- flutter / dart ------------------------------------------------------
+app/build/
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/android/.gradle/
+app/ios/Pods/
+app/windows/flutter/ephemeral/
+*.iml
+
+# --- editors / os --------------------------------------------------------
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
