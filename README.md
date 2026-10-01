@@ -358,18 +358,37 @@ SHADHIN_API_BASE_URL=http://127.0.0.1:8000
 
 ## Live Deployment URL
 
-**Status: not yet deployed.** 🚧
+### **https://muradahmedtahmim.github.io/Upay-Shadhin/**
 
-The API and the Flutter web build will be deployed during the hackathon window, and
-**this section will be updated with the actual live URL** as soon as it is available.
+Open it and the full customer app runs in the browser - no install, no backend, no
+credentials. It serves the Flutter web build from the `gh-pages` branch.
 
-Until then, the project runs fully locally by following *Installation & Setup* above —
-no credentials or external services are required.
+**What you are looking at.** The hosted build runs from **bundled fixture responses**
+captured from the real API, and the app says so with an offline banner at the top. That
+is deliberate: the ML service is not hosted, and showing captured data without labelling
+it would be dishonest. Every screen, every number and every explanation is real output
+from the real models - the sliders on the goal screen are the one thing that cannot
+re-simulate without the backend, and the screen warns about exactly that.
 
-| Component | Planned deployment | URL |
+**To see it fully live**, run the API locally and point the app at it:
+
+```bash
+uvicorn api.main:app --host 127.0.0.1 --port 8000
+cd app && flutter run -d chrome
+```
+
+| Component | Status | URL |
 |---|---|---|
-| Flutter web app | static hosting | _to be added_ |
-| FastAPI service | container host | _to be added_ |
+| Flutter web app | ✅ deployed | https://muradahmedtahmim.github.io/Upay-Shadhin/ |
+| FastAPI service | local only | `http://127.0.0.1:8000` (`/docs` for the OpenAPI UI) |
+| Source | ✅ public | https://github.com/MuradAhmedTahmim/Upay-Shadhin |
+
+Redeploy after a change:
+
+```bash
+cd app && flutter build web --release --base-href /Upay-Shadhin/
+# then publish build/web to the gh-pages branch
+```
 
 ---
 
@@ -589,7 +608,7 @@ metric was corrected is more informative than the metric itself.
 | D | FastAPI service | ✅ done |
 | E | Flutter app (পূর্বাভাস / খরচ / লক্ষ্য / কেন) | ✅ done |
 | F | Idea framework, fairness table, pitch notes | ✅ docs done |
-| — | Public deployment URL | 🚧 pending |
+| — | Public deployment URL | ✅ [live](https://muradahmedtahmim.github.io/Upay-Shadhin/) |
 
 ---
 
