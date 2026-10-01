@@ -1,0 +1,94 @@
+{
+  "generated_at": "2026-10-01T15:56:01+00:00",
+  "as_of": "2026-08-31",
+  "forecast_model": "forecast-1.0.0",
+  "categoriser_model": "categorizer-1.0.0",
+  "data": "synthetic",
+  "note": "Precomputed from the same api/service.py the live API serves. Every figure is real model output.",
+  "users": [
+    {
+      "user_id": "U100007",
+      "archetype": "gig",
+      "income_band": "mid",
+      "area": "urban",
+      "balance": 28255.48
+    },
+    {
+      "user_id": "U100057",
+      "archetype": "remittance",
+      "income_band": "mid",
+      "area": "rural",
+      "balance": 18525.58
+    },
+    {
+      "user_id": "U100011",
+      "archetype": "salaried",
+      "income_band": "mid",
+      "area": "urban",
+      "balance": 20171.23
+    },
+    {
+      "user_id": "U100048",
+      "archetype": "trader",
+      "income_band": "mid",
+      "area": "urban",
+      "balance": 38069.44
+    },
+    {
+      "user_id": "U100054",
+      "archetype": "gig",
+      "income_band": "mid",
+      "area": "urban",
+      "balance": 39726.54
+    },
+    {
+      "user_id": "U100096",
+      "archetype": "remittance",
+      "income_band": "mid",
+      "area": "urban",
+      "balance": 16184.08
+    },
+    {
+      "user_id": "U100016",
+      "archetype": "salaried",
+      "income_band": "mid",
+      "area": "rural",
+      "balance": 97214.59
+    },
+    {
+      "user_id": "U100058",
+      "archetype": "trader",
+      "income_band": "mid",
+      "area": "urban",
+      "balance": 61678.99
+    },
+    {
+      "user_id": "U100074",
+      "archetype": "gig",
+      "income_band": "mid",
+      "area": "urban",
+      "balance": 37091.58
+    },
+    {
+      "user_id": "U100106",
+      "archetype": "remittance",
+      "income_band": "mid",
+      "area": "urban",
+      "balance": 26461.85
+    },
+    {
+      "user_id": "U100017",
+      "archetype": "salaried",
+      "income_band": "low",
+      "area": "urban",
+      "balance": 18825.53
+    },
+    {
+      "user_id": "U100153",
+      "archetype": "trader",
+      "income_band": "mid",
+      "area": "urban",
+      "balance": 41831.42
+    }
+  ]
+}
