@@ -56,7 +56,11 @@ def find_risk_window(balance_today: float, p10_cum: list[float], floor: float,
     we want to warn about a shortfall that is *plausible*, not only one that is
     more likely than not.
     """
-    path = [balance_today + c for c in p10_cum]
+    # Inputs often arrive as numpy scalars from the forecaster; coerce once here so
+    # every value this module returns is a plain float and serialises as JSON.
+    balance_today = float(balance_today)
+    floor = float(floor)
+    path = [balance_today + float(c) for c in p10_cum]
     below = [i for i, b in enumerate(path) if b < floor]
     if not below:
         return None
@@ -76,9 +80,9 @@ def find_risk_window(balance_today: float, p10_cum: list[float], floor: float,
         end_day=end + 1,
         start_date=(as_of + timedelta(days=start + 1)).isoformat(),
         end_date=(as_of + timedelta(days=end + 1)).isoformat(),
-        lowest_balance=round(seg[low_rel], 2),
+        lowest_balance=round(float(seg[low_rel]), 2),
         lowest_day=start + low_rel + 1,
-        shortfall=round(floor - seg[low_rel], 2),
+        shortfall=round(float(floor - seg[low_rel]), 2),
     )
 
 
@@ -120,6 +124,9 @@ def max_safe_weekly_save(balance_today: float, p10_cum: list[float], floor: floa
     binds is usually a rent or bill day in between two transfers.
     """
     horizon = len(p10_cum)
+    balance_today = float(balance_today)
+    floor = float(floor)
+    p10_cum = [float(c) for c in p10_cum]
     reasons: list[dict] = []
 
     if balance_today < floor:
@@ -211,6 +218,9 @@ def simulate_plan(balance_today: float, cum_path: list[float], floor: float,
     Replay a savings plan against a forecast path. Used by the tests and by the
     evaluation to check that a proposed plan never breaches the floor.
     """
+    balance_today = float(balance_today)
+    floor = float(floor)
+    cum_path = [float(c) for c in cum_path]
     balance, saved, min_balance, breaches = balance_today, 0.0, math.inf, 0
     for d in range(1, len(cum_path) + 1):
         bal = balance_today + cum_path[d - 1] - weekly_amount * (d // SAVE_INTERVAL_DAYS)
