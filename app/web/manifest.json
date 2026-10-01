@@ -1,11 +1,11 @@
 {
-    "name": "shadhin_app",
-    "short_name": "shadhin_app",
+    "name": "upay Shadhin",
+    "short_name": "Shadhin",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "AI cash-flow copilot for mobile-wallet customers.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
