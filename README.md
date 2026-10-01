@@ -65,8 +65,8 @@ being an active wallet user and being financially independent.
 
 ## Features
 
-> Build status is tracked honestly. ✅ = implemented and runnable today.
-> 🚧 = in progress during the hackathon window.
+> ✅ = implemented and runnable today. All nine are built; only public deployment
+> remains, and that is marked as pending rather than described as done.
 
 ### ✅ 1. Synthetic MFS data generator — `data/generate.py`
 
@@ -139,7 +139,7 @@ lookup. A hand-written **keyword-rule baseline** (`rule_predict`) ships alongsid
 is reported next to the model in the metrics, so the value added by learning is visible
 rather than asserted.
 
-### 🚧 5. Safe-to-save optimiser — `rules/`
+### ✅ 5. Safe-to-save optimiser — `rules/optimizer.py`
 
 Pure deterministic Python, **kept strictly out of the ML layer** (guideline: "Keep
 business rules distinct from machine-learning predictions"). Consumes the **P10**
@@ -150,12 +150,12 @@ business rules distinct from machine-learning predictions"). Consumes the **P10*
   cash-out fees")
 - the **risk window** — the exact dates the balance is predicted to go short
 
-### 🚧 6. Cash-out leakage detector — `rules/`
+### ✅ 6. Cash-out leakage detector — `rules/leakage.py`
 
 Mines repeated, habitual withdrawals from categorised history and quantifies the annual
 fee cost, naming the digital substitutes the user already uses.
 
-### 🚧 7. Plain-Bangla explanation layer — `nlg/`
+### ✅ 7. Plain-Bangla explanation layer — `nlg/narrator.py`
 
 Structured evidence → Bangla sentence. Ships with a **deterministic template provider**
 behind an `LLMProvider` interface, so an LLM key can be dropped in later without
@@ -163,9 +163,49 @@ touching the API. The language layer only ever *renders numbers it is handed* �
 never makes a decision. This is the guideline's "do not put sensitive decision logic
 entirely inside a free-form LLM prompt", enforced structurally.
 
-### 🚧 8. FastAPI service — `api/`
+### ✅ 8. FastAPI service — `api/`
 
-### 🚧 9. Flutter customer app — `app/`
+`api/service.py` holds the orchestration (framework-free, so it is testable and
+reusable); `api/main.py` is a thin HTTP wrapper. Every user's forecast is precomputed
+once at startup, so endpoints are lookups.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /health` | Service status, as-of date, model versions |
+| `GET /users` | Demo user directory |
+| `GET /profile/{id}` | Balance, safety floor, 30-day inflow/outflow |
+| `GET /forecast/{id}` | 30-day path with P10/P50/P90, risk window, `reasons[]` |
+| `GET /insights/{id}` | Spending categories + cash-out leakage with evidence |
+| `GET /safe-to-save/{id}` | The weekly amount the forecast supports |
+| `POST /goal/simulate` | Feasibility verdict and trade-offs |
+| `GET /metrics` | The holdout metrics report |
+
+"Today" in the prototype is **2026-08-31**, the last day any model was allowed to see,
+so everything shown about "the next 30 days" is a genuine forward forecast over the
+untouched holdout rather than a replay of known data.
+
+Every response carries `model_version`. Nothing moves money: `/safe-to-save` and
+`/goal/simulate` return proposals carrying `requires_confirmation: true`.
+
+### ✅ 9. Flutter customer app — `app/`
+
+Bangla-first, large-typed, with Noto Sans Bengali bundled so text renders identically on
+Windows and web without a runtime font download.
+
+| Screen | What it shows |
+|---|---|
+| **পূর্বাভাস** | Balance, the 30-day forecast with its P10–P90 band, the predicted risk window |
+| **খরচ** | Annualised cash-out fee cost, avoidable share, habitual withdrawals, spending by category |
+| **লক্ষ্য** | Safe-to-save amount, sliders that re-simulate live, feasibility verdict, trade-offs, explicit confirmation step |
+| **কেন** | Which layer produced which number, and what the product will never do |
+
+Every screen can expand a **"কেন এই হিসাব?"** block showing the `reasons[]` and raw
+evidence behind the number it just asserted.
+
+**Offline fallback.** If the API is unreachable, bundled fixtures keep every screen
+working and a banner says so — serving captured data as if it were live would be
+dishonest. The Goal screen additionally warns that a fixture result does not reflect the
+sliders.
 
 ---
 
@@ -378,29 +418,80 @@ python -m ml.evaluate
 
 **Expected:** `docs/metrics.md` is written, containing
 - forecaster MAE **below** the day-of-month baseline, with the % improvement
-- P10–P90 coverage close to **0.80**
+- P10–P90 coverage near **0.75** after conformal calibration (nominal 0.80)
 - categoriser macro-F1 **above** the keyword-rule baseline
-- a fairness table breaking error down by income band, area and gender
-- the simulated goal-completion uplift and ৳/year leakage figures
+- a fairness table breaking error down by income band, area, gender and archetype
+- plan-caused shortfalls at matched savings, and the ৳/year leakage figures
 
-### 4. Run the unit tests
+### 4. Run the Python tests
 
 ```bash
-python -m pytest -q
+python -m pytest -q          # 53 tests
 ```
 
-Key cases covered: the savings optimiser never proposes an amount that breaches the
-safety floor; the forecast quantile band is never inverted; the holdout split is
-respected.
+The one that matters is the randomised safety property: across 40 seeded forecast paths
+with rent-sized shocks, the optimiser's proposed amount must never push the pessimistic
+balance below the floor. Where the forecast already dips below the floor on its own, it
+must refuse by proposing zero rather than making things worse.
 
-### 5. Manual end-to-end check (once the API and app are up) 🚧
+Also covered: amounts are rounded before being shown, more headroom never lowers the
+recommendation, a mid-month shock shrinks the whole month's plan, the goal verdict is
+driven by coverage rather than encouragement, and the leakage detector claims nothing
+avoidable for a customer with no digital spend.
 
-1. `uvicorn api.main:app --reload`, then open `http://127.0.0.1:8000/docs`
-2. Call `GET /forecast/{user_id}` — the response carries a `reasons[]` array and a
-   `model_version`, so every number is traceable
-3. `cd app && flutter run -d windows` and walk the four screens
-4. **Kill the API and walk the app again** — it falls back to bundled fixtures, so the
-   demo survives a dead backend
+### 5. Run the Flutter tests
+
+```bash
+cd app
+flutter analyze              # expect: No issues found!
+flutter test                 # 9 tests
+```
+
+The Bangla numeral and date helpers are tested directly because the same formatting also
+exists in `nlg/narrator.py` on the server — if the two drift, the app and the API would
+render the same amount differently.
+
+### 6. Manual end-to-end check
+
+```bash
+# terminal 1
+uvicorn api.main:app --host 127.0.0.1 --port 8000
+
+# terminal 2
+cd app && flutter run -d chrome        # or: flutter run -d windows
+```
+
+1. Open `http://127.0.0.1:8000/docs` and call `GET /forecast/U100007`. The response
+   carries `reasons[]` and `model_version`, so every number on screen is traceable.
+2. In the app, walk the four screens. On **লক্ষ্য**, drag the sliders — the verdict
+   re-simulates against the live API.
+3. Expand a **"কেন এই হিসাব?"** block anywhere; it shows the raw evidence behind the
+   number above it.
+4. **Now kill the API and reload the app.** Every screen still renders from bundled
+   fixtures and an offline banner appears — the demo survives a dead backend.
+
+**Sample output** for `U100007` (the fixture user):
+
+```
+GET /safe-to-save/U100007
+  weekly_amount: 2850.0
+  binding_date:  2026-09-21        <- the tightest day in the next 30
+  narrative.bn:  "পূর্বাভাস অনুযায়ী আপনি প্রতি সপ্তাহে ৳২,৮৫০ পর্যন্ত নিরাপদে
+                  জমাতে পারেন — মাসে প্রায় ৳১২,৩৫০।"
+
+POST /goal/simulate  {"goal_amount": 30000, "deadline_days": 180}
+  verdict:        feasible
+  projected_total: 71250.0
+  requires_confirmation: true
+```
+
+### 7. Serve the web build as a judge would see it
+
+```bash
+cd app && flutter build web --release
+cd build/web && python -m http.server 8080
+# open http://127.0.0.1:8080
+```
 
 ---
 
@@ -442,30 +533,63 @@ shadhin/
 ├── ml/            data prep and models (prediction only)
 │   ├── split.py          <- the single source of truth for train/holdout
 │   ├── panel.py          <- user x day matrices
-│   ├── forecast.py       <- quantile cash-flow forecaster
+│   ├── forecast.py       <- quantile forecaster + conformal calibration
 │   ├── categorizer.py    <- transaction categoriser + rule baseline
 │   ├── train.py
-│   └── evaluate.py
+│   └── evaluate.py       <- generates docs/metrics.md
 ├── rules/         deterministic business logic (no ML)
+│   ├── optimizer.py      <- safe-to-save, risk window, goal feasibility
+│   └── leakage.py        <- cash-out leakage detection
 ├── nlg/           evidence -> plain-Bangla narrative
+│   └── narrator.py       <- LLMProvider seam, template provider by default
 ├── api/           FastAPI service
+│   ├── service.py        <- orchestration (framework-free)
+│   └── main.py           <- HTTP wrapper
 ├── app/           Flutter customer app
-├── docs/          metrics, idea framework, pitch notes
-└── tests/
+│   ├── lib/screens/      <- home, insights, goal, why
+│   ├── assets/fixtures/  <- offline demo responses
+│   └── test/
+├── docs/
+│   ├── metrics.md        <- generated holdout report
+│   └── idea-framework.md <- the guideline's 9-step chain, filled in
+└── tests/         pytest suite for the rules layer
 ```
 
 ---
 
-## Status & Roadmap
+## Results (holdout)
+
+Measured on the untouched last 30 days, forecasting from 2026-08-31. Full report:
+[`docs/metrics.md`](docs/metrics.md), regenerated by `python -m ml.evaluate`.
+
+| Metric | Result |
+|---|---|
+| Forecast MAE vs day-of-month baseline | **8.4% lower** (৳3,923 vs ৳4,280) |
+| P10–P90 coverage | 0.746 (nominal 0.80) |
+| Categoriser macro-F1 vs keyword rules | **0.9998** vs 0.9675 |
+| Risk-window flag | precision **0.920**, recall **0.984** |
+| Plan-caused shortfalls, at matched savings | **1.1%** vs 1.5% — 1.3× less harm per ৳1,000 saved |
+| Correctness of refusing a plan | 92.7% of declined users did go below their floor |
+| Avoidable cash-out fees surfaced | **৳1,701** per user per year |
+
+Two of these numbers only became meaningful after the first version of the evaluation
+was found to be measuring the wrong thing — the reasoning is written up in
+[`docs/idea-framework.md`](docs/idea-framework.md) under *Validation*, because how a
+metric was corrected is more informative than the metric itself.
+
+---
+
+## Status
 
 | Block | Scope | Status |
 |---|---|---|
 | A | Synthetic data generator + documented assumptions | ✅ done |
-| B | Categoriser + quantile forecaster + holdout evaluation | ✅ models trained, 🚧 evaluation report |
-| C | Safe-to-save optimiser + leakage detector + tests | 🚧 |
-| D | FastAPI service | 🚧 |
-| E | Flutter app (Home / Insights / Goal / Why) | 🚧 |
-| F | Fairness table, idea framework, pitch, deployment | 🚧 |
+| B | Categoriser + quantile forecaster + conformal calibration + holdout evaluation | ✅ done |
+| C | Safe-to-save optimiser + leakage detector + 53 tests | ✅ done |
+| D | FastAPI service | ✅ done |
+| E | Flutter app (পূর্বাভাস / খরচ / লক্ষ্য / কেন) | ✅ done |
+| F | Idea framework, fairness table, pitch notes | ✅ docs done |
+| — | Public deployment URL | 🚧 pending |
 
 ---
 
