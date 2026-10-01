@@ -99,9 +99,16 @@ class SafeToSave:
 
 
 def max_safe_weekly_save(balance_today: float, p10_cum: list[float], floor: float,
-                         as_of: date) -> SafeToSave:
+                         as_of: date, weekly_income: float | None = None,
+                         income_cap_share: float = 0.40) -> SafeToSave:
     """
     Largest weekly auto-save that never takes the P10 balance path below `floor`.
+
+    A second, product-level constraint applies on top of the safety one: the plan is
+    capped at `income_cap_share` of the customer's weekly income. Without it the
+    optimiser happily proposes sweeping a large idle wallet balance into savings, which
+    is arithmetically safe but is not a savings habit - it is a one-off transfer that
+    the customer cannot repeat next month. A plan should be fundable from income.
 
     Saving `s` every 7 days means that by horizon day d the customer has moved
     `s * (d // 7)` out of the wallet. The constraint is therefore
@@ -140,6 +147,22 @@ def max_safe_weekly_save(balance_today: float, p10_cum: list[float], floor: floa
 
     weekly = _floor_to(max(best, 0.0)) if best is not math.inf else 0.0
     n_saves = horizon // SAVE_INTERVAL_DAYS
+
+    if weekly_income and weekly_income > 0:
+        cap = _floor_to(weekly_income * income_cap_share)
+        if cap < weekly:
+            reasons.append({
+                "code": "income_cap",
+                "detail": "Capped so the plan is fundable from income rather than by "
+                          "draining the existing wallet balance.",
+                "evidence": {
+                    "safe_by_forecast": weekly,
+                    "weekly_income": round(weekly_income, 2),
+                    "cap_share": income_cap_share,
+                    "capped_to": cap,
+                },
+            })
+            weekly = cap
 
     if weekly <= 0:
         reasons.append({

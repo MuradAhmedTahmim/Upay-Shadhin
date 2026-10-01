@@ -96,7 +96,7 @@ class Categorizer:
             TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4),
                             min_df=5, max_features=60_000, sublinear_tf=True),
             StandardScaler(),
-            LogisticRegression(C=6.0, max_iter=600, n_jobs=-1),
+            LogisticRegression(C=6.0, max_iter=600),
         )
         X = self._design(df, fit=True)
         self.clf.fit(X, df["category"].to_numpy())

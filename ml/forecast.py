@@ -172,9 +172,12 @@ def build_rows(p: panel.Panel, ctx: Context, asof_indices: list[int],
 # ---------------------------------------------------------------- model
 
 class Forecaster:
-    def __init__(self, models: dict, version: str = MODEL_VERSION):
+    def __init__(self, models: dict, version: str = MODEL_VERSION,
+                 calibration: dict | None = None):
         self.models = models                      # quantile -> regressor
         self.version = version
+        # horizon -> additive widening of the P10/P90 band (conformal, see calibrate)
+        self.calibration = calibration or {}
 
     @classmethod
     def fit(cls, X: np.ndarray, y: np.ndarray, verbose: bool = True) -> "Forecaster":
@@ -193,22 +196,71 @@ class Forecaster:
             models[q] = m
         return cls(models)
 
-    def predict(self, X: np.ndarray) -> dict:
+    def predict(self, X: np.ndarray, calibrated: bool = True) -> dict:
         out = {q: self.models[q].predict(X) for q in QUANTILES}
+        lo, mid, hi = out[0.10], out[0.50], out[0.90]
+
+        if calibrated and self.calibration:
+            # Widen each side by its own conformal margin. Without this the band is
+            # over-confident out of sample, and the savings optimiser - which trusts
+            # P10 as the pessimistic case - proposes amounts that push customers below
+            # their floor. Calibration is what makes P10 safe to use.
+            h = X[:, FEATURE_NAMES.index("horizon")]
+            d_lo = np.array([self.calibration.get(int(v), (0.0, 0.0))[0] for v in h])
+            d_hi = np.array([self.calibration.get(int(v), (0.0, 0.0))[1] for v in h])
+            lo = lo - d_lo
+            hi = hi + d_hi
+
         # Quantile models are fitted independently and can cross; enforce monotonicity
         # so the band shown to a customer is never inverted.
-        lo, mid, hi = out[0.10], out[0.50], out[0.90]
         lo, hi = np.minimum(lo, hi), np.maximum(lo, hi)
         mid = np.clip(mid, lo, hi)
         return {0.10: lo, 0.50: mid, 0.90: hi}
 
+    def calibrate(self, X: np.ndarray, y: np.ndarray, meta: np.ndarray,
+                  target_coverage: float = 0.80) -> dict:
+        """
+        Conformalised quantile regression (CQR), per horizon, calibrated on each side
+        independently.
+
+        Quantile gradient boosting optimises pinball loss on the training
+        distribution; it carries no guarantee that 90% of future outcomes land above
+        the P10 line, and in practice it is over-confident. CQR fixes this on data the
+        model never fitted:
+
+            lower margin  d_lo = quantile(P10 - y, 0.90)   ->  P(y < P10 - d_lo) ~ 0.10
+            upper margin  d_hi = quantile(y - P90, 0.90)   ->  P(y > P90 + d_hi) ~ 0.10
+
+        The two sides are calibrated **separately**, not by a single symmetric margin.
+        The downside is the one with teeth: the savings optimiser makes a safety
+        decision from the lower bound alone, and tying its margin to the upper tail
+        would let a long right tail quietly loosen the guarantee that matters.
+
+        Done per horizon, because uncertainty grows with distance - a 1-day forecast
+        needs a far narrower margin than a 30-day one.
+        """
+        raw = self.predict(X, calibrated=False)
+        err_lo = raw[0.10] - y          # positive when the truth fell below P10
+        err_hi = y - raw[0.90]          # positive when the truth fell above P90
+        one_sided = 1 - (1 - target_coverage) / 2      # 0.80 -> 0.90 per side
+        h = meta[:, 2]
+        self.calibration = {
+            int(hh): (
+                float(max(np.quantile(err_lo[h == hh], one_sided), 0.0)),
+                float(max(np.quantile(err_hi[h == hh], one_sided), 0.0)),
+            )
+            for hh in np.unique(h)
+        }
+        return self.calibration
+
     def save(self, path: Path = MODEL_PATH) -> None:
-        joblib.dump({"models": self.models, "version": self.version}, path)
+        joblib.dump({"models": self.models, "version": self.version,
+                     "calibration": self.calibration}, path)
 
     @classmethod
     def load(cls, path: Path = MODEL_PATH) -> "Forecaster":
         blob = joblib.load(path)
-        return cls(blob["models"], blob["version"])
+        return cls(blob["models"], blob["version"], blob.get("calibration"))
 
 
 def baseline_predict(ctx: Context, meta: np.ndarray) -> np.ndarray:
