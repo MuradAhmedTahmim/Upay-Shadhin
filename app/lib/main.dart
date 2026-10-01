@@ -53,14 +53,13 @@ class _ShellState extends State<Shell> {
   final ApiClient _client = ApiClient();
   int _tab = 0;
 
-  String _userId = kFixtureUserId;
+  String? _userId;
   List<dynamic> _users = const [];
 
   Map<String, dynamic>? _profile;
   Map<String, dynamic>? _forecast;
   Map<String, dynamic>? _insights;
   Map<String, dynamic>? _safeToSave;
-  Map<String, dynamic>? _goal;
 
   bool _loading = true;
   String? _error;
@@ -89,25 +88,25 @@ class _ShellState extends State<Shell> {
     });
     try {
       final users = await _client.users();
-      // The bundled fixtures belong to one user; if the live API is unreachable we
-      // must show that user rather than whatever was selected.
-      if (_client.usingFixtures) _userId = kFixtureUserId;
+      final id = _userId ??
+          (users.isNotEmpty
+              ? (users.first as Map)['user_id'] as String
+              : await _client.defaultUserId());
 
       final results = await Future.wait([
-        _client.profile(_userId),
-        _client.forecast(_userId),
-        _client.insights(_userId),
-        _client.safeToSave(_userId),
-        _client.simulateGoal(_userId, 30000, 180),
+        _client.profile(id),
+        _client.forecast(id),
+        _client.insights(id),
+        _client.safeToSave(id),
       ]);
       if (!mounted) return;
       setState(() {
         _users = users;
+        _userId = id;
         _profile = results[0];
         _forecast = results[1];
         _insights = results[2];
         _safeToSave = results[3];
-        _goal = results[4];
         _loading = false;
       });
     } catch (e) {
@@ -120,7 +119,10 @@ class _ShellState extends State<Shell> {
   }
 
   Future<void> _switchUser(String id) async {
-    setState(() => _userId = id);
+    setState(() {
+      _userId = id;
+      _tab = _tab;
+    });
     await _load();
   }
 
@@ -132,6 +134,12 @@ class _ShellState extends State<Shell> {
   void _toggleLanguage() {
     Settings.lang = Settings.isBn ? Lang.en : Lang.bn;
     widget.onSettingsChanged();
+  }
+
+  double get _monthlyAvoidableFees {
+    final leak = _insights?['leakage'] as Map<String, dynamic>?;
+    final annual = (leak?['avoidable_fees_annualised'] as num?)?.toDouble() ?? 0;
+    return annual / 12.0;
   }
 
   @override
@@ -166,14 +174,15 @@ class _ShellState extends State<Shell> {
       InsightsScreen(insights: _insights!),
       GoalScreen(
         client: _client,
-        userId: _userId,
+        userId: _userId!,
         safeToSave: _safeToSave!,
-        initialGoal: _goal!,
+        monthlyAvoidableFees: _monthlyAvoidableFees,
+        asOf: DateTime.parse(_profile!['as_of'] as String),
       ),
       WhyScreen(
         profile: _profile!,
         forecast: _forecast!,
-        usingFixtures: _client.usingFixtures,
+        precomputed: _client.isPrecomputed,
         baseUrl: _client.baseUrl,
       ),
     ];
@@ -221,7 +230,7 @@ class _ShellState extends State<Shell> {
               color: C.ink,
             ),
           ),
-          if (_users.isNotEmpty && !_client.usingFixtures)
+          if (_users.isNotEmpty)
             PopupMenuButton<String>(
               tooltip: T.switchCustomer,
               icon: Icon(Icons.people_outline, color: C.ink),
@@ -248,21 +257,22 @@ class _ShellState extends State<Shell> {
       ),
       body: Column(
         children: [
-          // Be explicit about which data the viewer is looking at. Silently serving
-          // captured responses as if they were live would be dishonest.
-          if (_client.usingFixtures)
+          // Say which mode is running. The precomputed bundle is real model output,
+          // not a mock-up - but it is fixed to one forecast date, and implying it is
+          // live would be dishonest.
+          if (_client.isPrecomputed)
             Container(
               width: double.infinity,
-              color: C.warnBg,
+              color: C.infoBg,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
-                  Icon(Icons.cloud_off, size: 16, color: C.warn),
+                  Icon(Icons.inventory_2_outlined, size: 16, color: C.info),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      T.offlineBanner,
-                      style: TextStyle(fontSize: 12.5, color: C.warn),
+                      T.precomputedBanner,
+                      style: TextStyle(fontSize: 12.5, color: C.info),
                     ),
                   ),
                 ],

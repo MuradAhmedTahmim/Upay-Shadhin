@@ -17,13 +17,13 @@ class WhyScreen extends StatelessWidget {
     super.key,
     required this.profile,
     required this.forecast,
-    required this.usingFixtures,
+    required this.precomputed,
     required this.baseUrl,
   });
 
   final Map<String, dynamic> profile;
   final Map<String, dynamic> forecast;
-  final bool usingFixtures;
+  final bool precomputed;
   final String baseUrl;
 
   @override
@@ -94,7 +94,7 @@ class WhyScreen extends StatelessWidget {
                   value: forecast['model_version'] as String? ?? '-'),
               _Row(
                   label: T.dataSource,
-                  value: usingFixtures ? T.savedFixture : baseUrl),
+                  value: precomputed ? T.precomputedSource : baseUrl),
               _Row(label: T.dataKind, value: T.synthetic),
             ],
           ),

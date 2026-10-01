@@ -3,11 +3,16 @@
 /// The screen is built around refusing to flatter. It leads with the safe-to-save
 /// amount the forecast supports, and when a goal does not fit it says so and offers
 /// the trade-offs rather than nudging the customer to "try harder".
+///
+/// The verdict is computed in the app (`goal_math.dart`), not fetched, so the sliders
+/// respond immediately and the screen works with no backend. That arithmetic is a port
+/// of `rules/optimizer.py` and is cross-tested against it.
 library;
 
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../goal_math.dart';
 import '../i18n.dart';
 import '../theme.dart';
 
@@ -17,49 +22,48 @@ class GoalScreen extends StatefulWidget {
     required this.client,
     required this.userId,
     required this.safeToSave,
-    required this.initialGoal,
+    required this.monthlyAvoidableFees,
+    required this.asOf,
   });
 
   final ApiClient client;
   final String userId;
   final Map<String, dynamic> safeToSave;
-  final Map<String, dynamic> initialGoal;
+
+  /// Cash-out fees the customer could plausibly stop paying, per month. Feeds the
+  /// "redirect your fees" trade-off.
+  final double monthlyAvoidableFees;
+  final DateTime asOf;
 
   @override
   State<GoalScreen> createState() => _GoalScreenState();
 }
 
 class _GoalScreenState extends State<GoalScreen> {
-  late Map<String, dynamic> _goal = widget.initialGoal;
   double _amount = 30000;
   double _months = 6;
-  bool _busy = false;
   bool _confirmed = false;
 
-  Future<void> _recalculate() async {
-    setState(() => _busy = true);
-    final g = await widget.client
-        .simulateGoal(widget.userId, _amount, (_months * 30).round());
-    if (!mounted) return;
-    setState(() {
-      _goal = g;
-      _busy = false;
-      _confirmed = false;
-    });
-  }
+  GoalPlan get _plan => planGoal(
+        goalAmount: _amount,
+        deadlineDays: (_months * 30).round(),
+        safeWeekly: (widget.safeToSave['weekly_amount'] as num).toDouble(),
+        asOf: widget.asOf,
+        monthlyAvoidableFees: widget.monthlyAvoidableFees,
+      );
 
   @override
   Widget build(BuildContext context) {
     final sts = widget.safeToSave;
     final weekly = (sts['weekly_amount'] as num).toDouble();
-    final verdict = _goal['verdict'] as String? ?? 'not_feasible';
-    final alternatives = (_goal['alternatives'] as List?) ?? const [];
-    final stale = _goal['_fixture'] == true;
+    final plan = _plan;
 
-    final (Color vc, Color vbg, String vlabel, IconData vicon) = switch (verdict) {
-      'feasible' => (C.safe, C.safeBg, T.feasible, Icons.check_circle_outline),
-      'tight' => (C.warn, C.warnBg, T.tight, Icons.error_outline),
-      _ => (C.risk, C.riskBg, T.notFeasible, Icons.cancel_outlined),
+    final (Color vc, Color vbg, String vlabel, IconData vicon) = switch (plan.verdict) {
+      GoalVerdict.feasible =>
+        (C.safe, C.safeBg, T.feasible, Icons.check_circle_outline),
+      GoalVerdict.tight => (C.warn, C.warnBg, T.tight, Icons.error_outline),
+      GoalVerdict.notFeasible =>
+        (C.risk, C.riskBg, T.notFeasible, Icons.cancel_outlined),
     };
 
     return ListView(
@@ -106,8 +110,10 @@ class _GoalScreenState extends State<GoalScreen> {
                   min: 5000,
                   max: 200000,
                   divisions: 39,
-                  onChanged: (v) => setState(() => _amount = v),
-                  onChangeEnd: (_) => _recalculate(),
+                  onChanged: (v) => setState(() {
+                    _amount = v;
+                    _confirmed = false;
+                  }),
                 ),
               ),
               _SliderRow(
@@ -118,83 +124,60 @@ class _GoalScreenState extends State<GoalScreen> {
                   min: 1,
                   max: 36,
                   divisions: 35,
-                  onChanged: (v) => setState(() => _months = v),
-                  onChangeEnd: (_) => _recalculate(),
+                  onChanged: (v) => setState(() {
+                    _months = v;
+                    _confirmed = false;
+                  }),
                 ),
               ),
             ],
           ),
         ),
         const SizedBox(height: 14),
-        if (stale)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: StatusNote(
-              icon: Icons.cloud_off,
-              color: C.warn,
-              background: C.warnBg,
-              text: T.staleGoalNote,
-            ),
-          ),
         Panel(
           title: T.result,
-          trailing: _busy
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2))
-              : Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: vbg,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: vc.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(vicon, size: 15, color: vc),
-                    const SizedBox(width: 5),
-                    Text(vlabel,
-                        style: TextStyle(
-                            fontSize: 12.5,
-                            color: vc,
-                            fontWeight: FontWeight.w700)),
-                  ]),
-                ),
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: vbg,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: vc.withValues(alpha: 0.3)),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(vicon, size: 15, color: vc),
+              const SizedBox(width: 5),
+              Text(vlabel,
+                  style: TextStyle(
+                      fontSize: 12.5, color: vc, fontWeight: FontWeight.w700)),
+            ]),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(narrative(_goal['narrative'] as Map?),
+              Text(T.goalVerdict(plan),
                   style: const TextStyle(fontSize: 14.5, height: 1.6)),
               const SizedBox(height: 16),
               Row(children: [
                 Expanded(
                   child: _MiniStat(
-                    label: T.neededPerWeek,
-                    value: money((_goal['required_weekly'] as num).toDouble()),
-                  ),
+                      label: T.neededPerWeek, value: money(plan.requiredWeekly)),
                 ),
                 Expanded(
                   child: _MiniStat(
-                    label: T.safelyAvailable,
-                    value: money((_goal['safe_weekly'] as num).toDouble()),
-                  ),
+                      label: T.safelyAvailable, value: money(plan.safeWeekly)),
                 ),
                 Expanded(
                   child: _MiniStat(
-                    label: T.willAccumulate,
-                    value: money((_goal['projected_total'] as num).toDouble()),
-                  ),
+                      label: T.willAccumulate, value: money(plan.projectedTotal)),
                 ),
               ]),
-              if (alternatives.isNotEmpty) ...[
+              if (plan.alternatives.isNotEmpty) ...[
                 const Divider(height: 28),
                 Text(T.alternatives,
                     style:
                         const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 10),
-                for (final a in alternatives)
-                  _Alternative(data: a as Map<String, dynamic>),
+                for (final a in plan.alternatives) _Alternative(alt: a),
               ],
             ],
           ),
@@ -282,28 +265,21 @@ class _MiniStat extends StatelessWidget {
 }
 
 class _Alternative extends StatelessWidget {
-  const _Alternative({required this.data});
-  final Map<String, dynamic> data;
+  const _Alternative({required this.alt});
+  final GoalAlternative alt;
 
-  String get _title => switch (data['code']) {
+  String get _title => switch (alt.code) {
         'extend_deadline' => T.altExtend,
         'redirect_cash_out_fees' => T.altFees,
         _ => T.altOther,
       };
 
-  String get _detail {
-    switch (data['code']) {
-      case 'extend_deadline':
-        return T.altExtendBody(num_((data['extra_weeks'] as num).toDouble()));
-      case 'redirect_cash_out_fees':
-        return T.altFeesBody(
-          money((data['extra_weekly'] as num).toDouble()),
-          money((data['new_projected_total'] as num).toDouble()),
-        );
-      default:
-        return '${data['detail'] ?? ''}';
-    }
-  }
+  String get _detail => switch (alt.code) {
+        'extend_deadline' => T.altExtendBody(num_(alt.extraWeeks ?? 0)),
+        'redirect_cash_out_fees' => T.altFeesBody(
+            money(alt.extraWeekly ?? 0), money(alt.newProjectedTotal ?? 0)),
+        _ => T.altOtherBody,
+      };
 
   @override
   Widget build(BuildContext context) {

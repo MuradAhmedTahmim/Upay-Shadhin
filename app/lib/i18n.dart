@@ -9,6 +9,7 @@
 /// taka either way, because the currency does not change with the reader.
 library;
 
+import 'goal_math.dart';
 import 'settings.dart';
 
 const String _western = '0123456789';
@@ -84,9 +85,9 @@ class T {
   static String get switchCustomer => _p('গ্রাহক বদলান', 'Switch customer');
   static String get toggleTheme => _p('ডার্ক / লাইট মোড', 'Dark / light mode');
   static String get toggleLanguage => _p('Switch to English', 'বাংলায় দেখুন');
-  static String get offlineBanner => _p(
-      'অফলাইন মোড — সংরক্ষিত ডেমো ডেটা দেখানো হচ্ছে',
-      'Offline mode - showing saved demo data');
+  static String get precomputedBanner => _p(
+      'ডেমো মোড — সব সংখ্যা আসল মডেলের আউটপুট, আগেই হিসাব করা (৩১ আগস্ট ২০২৬)',
+      'Demo mode - every figure is real model output, precomputed (31 Aug 2026)');
   static String get loadFailed => _p('ডেটা লোড করা যায়নি', 'Could not load data');
   static String get retry => _p('আবার চেষ্টা করুন', 'Try again');
 
@@ -159,6 +160,41 @@ class T {
       'which would bring the total to $total.');
   static String get altOther =>
       _p('খরচ কমান বা সীমা পুনর্বিবেচনা করুন', 'Reduce an outflow, or revisit the floor');
+  static String get altOtherBody => _p(
+      'বর্তমান নিরাপত্তা সীমায় সঞ্চয়ের সুযোগ নেই। হয় সীমাটি জেনেবুঝে কমাতে হবে, '
+      'নয়তো নিয়মিত কোনো খরচ কমাতে হবে।',
+      'There is no safe capacity at the current safety floor. Either lower the floor '
+      'deliberately, or reduce a recurring outflow.');
+
+  /// The goal verdict sentence.
+  ///
+  /// Written here rather than taken from the API because the verdict itself is now
+  /// computed in the app (see goal_math.dart), so its wording belongs with the rest of
+  /// the app's language and switches with the toggle like everything else.
+  static String goalVerdict(GoalPlan p) {
+    final amount = money(p.goalAmount);
+    final weeks = num_(p.weeks);
+    final needed = money(p.requiredWeekly);
+    final safe = money(p.safeWeekly);
+    return switch (p.verdict) {
+      GoalVerdict.feasible => _p(
+          '$amount জমানোর লক্ষ্যটি বাস্তবসম্মত। সপ্তাহে $safe করে রাখলে '
+          '$weeks সপ্তাহে লক্ষ্যে পৌঁছাবেন।',
+          'Your goal of $amount is achievable: $safe per week reaches it in '
+          '$weeks weeks.'),
+      GoalVerdict.tight => _p(
+          '$amount জমানোর লক্ষ্যটি সম্ভব, তবে বেশ টানটান। দরকার সপ্তাহে $needed, '
+          'আর নিরাপদে সম্ভব $safe।',
+          'The goal is close but tight: it needs $needed per week and $safe is what '
+          'is safely available.'),
+      GoalVerdict.notFeasible => _p(
+          'এই সময়ের মধ্যে $amount জমানো বাস্তবসম্মত নয়। দরকার সপ্তাহে $needed, '
+          'কিন্তু নিরাপদে সম্ভব $safe। সময় বাড়ালে বা খরচ কমালে লক্ষ্যটি সম্ভব হতে পারে।',
+          'This goal is not realistic in the time given: it needs $needed a week '
+          'against $safe available. Extending the deadline or reducing an outflow '
+          'would change that.'),
+    };
+  }
   static String get noAutoStart => _p(
       'এই পরিকল্পনা স্বয়ংক্রিয়ভাবে চালু হবে না',
       'This plan does not start by itself');
@@ -171,11 +207,6 @@ class T {
       _p('আমি রাজি — সাপ্তাহিক সঞ্চয় চালু করুন', 'I agree - start weekly saving');
   static String get planConfirmed => _p(
       'পরিকল্পনা নিশ্চিত করা হয়েছে (ডেমো)', 'Plan confirmed (demo)');
-  static String get staleGoalNote => _p(
-      'সার্ভার বন্ধ — নিচের ফলাফলটি সংরক্ষিত উদাহরণ (৳৩০,০০০ / ৬ মাস), '
-      'আপনার স্লাইডারের মান নয়।',
-      'Server offline - the verdict below is a saved example (BDT 30,000 over '
-      '6 months), not your slider values.');
 
   // --- why ----------------------------------------------------------------
   static String get syntheticNotice => _p(
@@ -216,8 +247,8 @@ class T {
   static String get customerId => _p('গ্রাহক আইডি', 'Customer ID');
   static String get forecastModel => _p('পূর্বাভাস মডেল', 'Forecast model');
   static String get dataSource => _p('ডেটা উৎস', 'Data source');
-  static String get savedFixture =>
-      _p('সংরক্ষিত ফিক্সচার (অফলাইন)', 'Saved fixture (offline)');
+  static String get precomputedSource => _p(
+      'আগেই হিসাব করা ডেমো বান্ডল', 'Precomputed demo bundle');
   static String get dataKind => _p('ডেটার ধরন', 'Data type');
   static String get synthetic => _p('সিন্থেটিক', 'Synthetic');
   static String get weNeverDo => _p('আমরা যা করি না', 'What we never do');

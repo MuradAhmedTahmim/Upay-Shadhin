@@ -61,7 +61,7 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/fixtures/
+    - assets/demo/
 
   fonts:
     - family: NotoSansBengali
