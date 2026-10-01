@@ -9,7 +9,7 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../api.dart';
+import '../i18n.dart';
 import '../theme.dart';
 
 class WhyScreen extends StatelessWidget {
@@ -31,49 +31,42 @@ class WhyScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       children: [
-        const StatusNote(
+        StatusNote(
           icon: Icons.science_outlined,
-          color: C.brandDark,
-          background: Color(0xFFE8F6FD),
-          text: 'এই অ্যাপের সব তথ্য সিন্থেটিক (কৃত্রিমভাবে তৈরি)। কোনো প্রকৃত '
-              'গ্রাহকের ডেটা ব্যবহার করা হয়নি।',
+          color: C.info,
+          background: C.infoBg,
+          text: T.syntheticNotice,
         ),
         const SizedBox(height: 14),
         Panel(
-          title: 'সিদ্ধান্তটি কীভাবে তৈরি হলো',
+          title: T.howDecisionMade,
           child: Column(
-            children: const [
+            children: [
               _Layer(
-                step: '১',
-                title: 'পূর্বাভাস — মেশিন লার্নিং',
-                body: 'আপনার নিজের লেনদেনের ইতিহাস থেকে আগামী ৩০ দিনের নগদ '
-                    'প্রবাহ অনুমান করা হয় (P10/P50/P90)। এটি একটি পরিসংখ্যানগত '
-                    'অনুমান, নিশ্চয়তা নয়।',
+                step: num_(1),
+                title: T.step1,
+                body: T.step1Body,
                 color: C.brand,
                 icon: Icons.insights_outlined,
               ),
               _Layer(
-                step: '২',
-                title: 'সিদ্ধান্ত — নির্দিষ্ট নিয়ম',
-                body: 'কত টাকা নিরাপদে জমানো যায় তা ঠিক করে একটি সাধারণ, '
-                    'যাচাইযোগ্য নিয়ম — কোনো মডেল নয়। সবচেয়ে সতর্ক অনুমান (P10) '
-                    'ব্যবহার করা হয়, যাতে খারাপ মাসেও সমস্যা না হয়।',
+                step: num_(2),
+                title: T.step2,
+                body: T.step2Body,
                 color: C.safe,
                 icon: Icons.rule_outlined,
               ),
               _Layer(
-                step: '৩',
-                title: 'ব্যাখ্যা — ভাষা',
-                body: 'উপরের সংখ্যাগুলোকে সহজ বাংলায় লেখা হয়। ভাষার অংশটি কোনো '
-                    'সিদ্ধান্ত নেয় না এবং কোনো সংখ্যা বদলাতে পারে না।',
+                step: num_(3),
+                title: T.step3,
+                body: T.step3Body,
                 color: C.warn,
                 icon: Icons.translate_outlined,
               ),
               _Layer(
-                step: '৪',
-                title: 'অনুমোদন — আপনি',
-                body: 'কোনো টাকা স্বয়ংক্রিয়ভাবে সরানো হয় না। প্রতিটি পরিকল্পনা '
-                    'আপনার নিশ্চিতকরণের অপেক্ষায় থাকে।',
+                step: num_(4),
+                title: T.step4,
+                body: T.step4Body,
                 color: C.ink,
                 icon: Icons.verified_user_outlined,
                 last: true,
@@ -83,39 +76,39 @@ class WhyScreen extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         Panel(
-          title: 'এই পূর্বাভাসের কারণ',
+          title: T.whyThisForecast,
           child: WhyBlock(
             reasons: (forecast['reasons'] as List?) ?? const [],
-            title: 'বিস্তারিত দেখুন',
+            title: T.seeDetails,
           ),
         ),
         const SizedBox(height: 14),
         Panel(
-          title: 'কারিগরি তথ্য',
+          title: T.technical,
           child: Column(
             children: [
-              _Row(label: 'হিসাবের তারিখ', value: bnDate(profile['as_of'] as String)),
-              _Row(label: 'গ্রাহক আইডি', value: profile['user_id'] as String),
+              _Row(label: T.asOfLabel, value: date_(profile['as_of'] as String)),
+              _Row(label: T.customerId, value: profile['user_id'] as String),
               _Row(
-                  label: 'পূর্বাভাস মডেল',
+                  label: T.forecastModel,
                   value: forecast['model_version'] as String? ?? '-'),
               _Row(
-                  label: 'ডেটা উৎস',
-                  value: usingFixtures ? 'সংরক্ষিত ফিক্সচার (অফলাইন)' : baseUrl),
-              const _Row(label: 'ডেটার ধরন', value: 'সিন্থেটিক'),
+                  label: T.dataSource,
+                  value: usingFixtures ? T.savedFixture : baseUrl),
+              _Row(label: T.dataKind, value: T.synthetic),
             ],
           ),
         ),
         const SizedBox(height: 14),
         Panel(
-          title: 'আমরা যা করি না',
+          title: T.weNeverDo,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              _Never(text: 'আপনার অনুমতি ছাড়া টাকা সরাই না'),
-              _Never(text: 'ঋণ অনুমোদন বা বাতিল করি না'),
-              _Never(text: 'অপ্রয়োজনীয় খরচে উৎসাহ দিই না'),
-              _Never(text: 'লুকানো ফি বা শর্ত রাখি না'),
+            children: [
+              _Never(text: T.never1),
+              _Never(text: T.never2),
+              _Never(text: T.never3),
+              _Never(text: T.never4),
             ],
           ),
         ),
@@ -158,10 +151,7 @@ class _Layer extends StatelessWidget {
                 ),
                 child: Icon(icon, size: 18, color: color),
               ),
-              if (!last)
-                Expanded(
-                  child: Container(width: 2, color: C.line),
-                ),
+              if (!last) Expanded(child: Container(width: 2, color: C.line)),
             ],
           ),
           const SizedBox(width: 12),
@@ -176,8 +166,8 @@ class _Layer extends StatelessWidget {
                           fontSize: 15, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
                   Text(body,
-                      style: const TextStyle(
-                          fontSize: 13.5, color: C.muted, height: 1.6)),
+                      style:
+                          TextStyle(fontSize: 13.5, color: C.muted, height: 1.6)),
                 ],
               ),
             ),
@@ -202,13 +192,15 @@ class _Row extends StatelessWidget {
         children: [
           Expanded(
             flex: 2,
-            child: Text(label, style: const TextStyle(fontSize: 13.5, color: C.muted)),
+            child:
+                Text(label, style: TextStyle(fontSize: 13.5, color: C.muted)),
           ),
           Expanded(
             flex: 3,
             child: Text(value,
                 textAlign: TextAlign.right,
-                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                style: const TextStyle(
+                    fontSize: 13.5, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -227,7 +219,7 @@ class _Never extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.block, size: 17, color: C.risk),
+          Icon(Icons.block, size: 17, color: C.risk),
           const SizedBox(width: 10),
           Expanded(
             child: Text(text, style: const TextStyle(fontSize: 14, height: 1.5)),

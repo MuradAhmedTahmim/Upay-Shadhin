@@ -8,6 +8,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../i18n.dart';
 import '../theme.dart';
 
 class GoalScreen extends StatefulWidget {
@@ -52,40 +53,39 @@ class _GoalScreenState extends State<GoalScreen> {
     final sts = widget.safeToSave;
     final weekly = (sts['weekly_amount'] as num).toDouble();
     final verdict = _goal['verdict'] as String? ?? 'not_feasible';
-    final narrative = (_goal['narrative'] as Map?)?['bn'] as String? ?? '';
     final alternatives = (_goal['alternatives'] as List?) ?? const [];
     final stale = _goal['_fixture'] == true;
 
     final (Color vc, Color vbg, String vlabel, IconData vicon) = switch (verdict) {
-      'feasible' => (C.safe, C.safeBg, 'সম্ভব', Icons.check_circle_outline),
-      'tight' => (C.warn, C.warnBg, 'টানটান', Icons.error_outline),
-      _ => (C.risk, C.riskBg, 'এখন সম্ভব নয়', Icons.cancel_outlined),
+      'feasible' => (C.safe, C.safeBg, T.feasible, Icons.check_circle_outline),
+      'tight' => (C.warn, C.warnBg, T.tight, Icons.error_outline),
+      _ => (C.risk, C.riskBg, T.notFeasible, Icons.cancel_outlined),
     };
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       children: [
         Panel(
-          title: 'আপনি নিরাপদে কত জমাতে পারেন',
-          subtitle: 'পূর্বাভাসের সবচেয়ে সতর্ক হিসাব (P10) থেকে',
+          title: T.safeToSaveTitle,
+          subtitle: T.safeToSaveSubtitle,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('৳${bnNum(weekly)}',
+                  Text(money(weekly),
                       style: const TextStyle(
                           fontSize: 34, fontWeight: FontWeight.w800, height: 1.1)),
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 6, left: 6),
-                    child: Text('/ সপ্তাহ',
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6, left: 6),
+                    child: Text(T.perWeek,
                         style: TextStyle(fontSize: 15, color: C.muted)),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
-              Text((sts['narrative'] as Map)['bn'] as String,
+              Text(narrative(sts['narrative'] as Map?),
                   style: const TextStyle(fontSize: 14.5, height: 1.6)),
               const Divider(height: 28),
               WhyBlock(reasons: (sts['reasons'] as List?) ?? const []),
@@ -94,13 +94,13 @@ class _GoalScreenState extends State<GoalScreen> {
         ),
         const SizedBox(height: 14),
         Panel(
-          title: 'আপনার লক্ষ্য',
+          title: T.yourGoal,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _SliderRow(
-                label: 'কত টাকা',
-                value: '৳${bnNum(_amount)}',
+                label: T.howMuch,
+                value: money(_amount),
                 slider: Slider(
                   value: _amount,
                   min: 5000,
@@ -111,8 +111,8 @@ class _GoalScreenState extends State<GoalScreen> {
                 ),
               ),
               _SliderRow(
-                label: 'কত সময়ে',
-                value: '${bnNum(_months)} মাস',
+                label: T.howLong,
+                value: T.monthsLabel(num_(_months)),
                 slider: Slider(
                   value: _months,
                   min: 1,
@@ -127,21 +127,22 @@ class _GoalScreenState extends State<GoalScreen> {
         ),
         const SizedBox(height: 14),
         if (stale)
-          const Padding(
-            padding: EdgeInsets.only(bottom: 14),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
             child: StatusNote(
               icon: Icons.cloud_off,
               color: C.warn,
               background: C.warnBg,
-              text: 'সার্ভার বন্ধ — নিচের ফলাফলটি সংরক্ষিত উদাহরণ '
-                  '(৳৩০,০০০ / ৬ মাস), আপনার স্লাইডারের মান নয়।',
+              text: T.staleGoalNote,
             ),
           ),
         Panel(
-          title: 'ফলাফল',
+          title: T.result,
           trailing: _busy
               ? const SizedBox(
-                  width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2))
               : Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -155,40 +156,45 @@ class _GoalScreenState extends State<GoalScreen> {
                     const SizedBox(width: 5),
                     Text(vlabel,
                         style: TextStyle(
-                            fontSize: 12.5, color: vc, fontWeight: FontWeight.w700)),
+                            fontSize: 12.5,
+                            color: vc,
+                            fontWeight: FontWeight.w700)),
                   ]),
                 ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(narrative, style: const TextStyle(fontSize: 14.5, height: 1.6)),
+              Text(narrative(_goal['narrative'] as Map?),
+                  style: const TextStyle(fontSize: 14.5, height: 1.6)),
               const SizedBox(height: 16),
               Row(children: [
                 Expanded(
                   child: _MiniStat(
-                    label: 'দরকার / সপ্তাহ',
-                    value: '৳${bnNum((_goal['required_weekly'] as num).toDouble())}',
+                    label: T.neededPerWeek,
+                    value: money((_goal['required_weekly'] as num).toDouble()),
                   ),
                 ),
                 Expanded(
                   child: _MiniStat(
-                    label: 'নিরাপদে সম্ভব',
-                    value: '৳${bnNum((_goal['safe_weekly'] as num).toDouble())}',
+                    label: T.safelyAvailable,
+                    value: money((_goal['safe_weekly'] as num).toDouble()),
                   ),
                 ),
                 Expanded(
                   child: _MiniStat(
-                    label: 'জমবে',
-                    value: '৳${bnNum((_goal['projected_total'] as num).toDouble())}',
+                    label: T.willAccumulate,
+                    value: money((_goal['projected_total'] as num).toDouble()),
                   ),
                 ),
               ]),
               if (alternatives.isNotEmpty) ...[
                 const Divider(height: 28),
-                const Text('বিকল্প পথ',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                Text(T.alternatives,
+                    style:
+                        const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 10),
-                for (final a in alternatives) _Alternative(data: a as Map<String, dynamic>),
+                for (final a in alternatives)
+                  _Alternative(data: a as Map<String, dynamic>),
               ],
             ],
           ),
@@ -199,14 +205,12 @@ class _GoalScreenState extends State<GoalScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('এই পরিকল্পনা স্বয়ংক্রিয়ভাবে চালু হবে না',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              Text(T.noAutoStart,
+                  style:
+                      const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
-              const Text(
-                'আপনার অনুমতি ছাড়া কোনো টাকা সরানো হবে না। আপনি যেকোনো সময় '
-                'পরিমাণ বদলাতে বা বন্ধ করতে পারবেন।',
-                style: TextStyle(fontSize: 13.5, color: C.muted, height: 1.55),
-              ),
+              Text(T.noAutoStartBody,
+                  style: TextStyle(fontSize: 13.5, color: C.muted, height: 1.55)),
               const SizedBox(height: 14),
               SizedBox(
                 width: double.infinity,
@@ -215,11 +219,10 @@ class _GoalScreenState extends State<GoalScreen> {
                       ? null
                       : () => setState(() => _confirmed = !_confirmed),
                   icon: Icon(_confirmed ? Icons.check : Icons.lock_outline),
-                  label: Text(_confirmed
-                      ? 'পরিকল্পনা নিশ্চিত করা হয়েছে (ডেমো)'
-                      : 'আমি রাজি — সাপ্তাহিক সঞ্চয় চালু করুন'),
+                  label: Text(_confirmed ? T.planConfirmed : T.confirmPlan),
                   style: FilledButton.styleFrom(
                     backgroundColor: _confirmed ? C.safe : C.brand,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
@@ -233,7 +236,8 @@ class _GoalScreenState extends State<GoalScreen> {
 }
 
 class _SliderRow extends StatelessWidget {
-  const _SliderRow({required this.label, required this.value, required this.slider});
+  const _SliderRow(
+      {required this.label, required this.value, required this.slider});
   final String label;
   final String value;
   final Widget slider;
@@ -246,9 +250,10 @@ class _SliderRow extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(fontSize: 14, color: C.muted)),
+            Text(label, style: TextStyle(fontSize: 14, color: C.muted)),
             Text(value,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           ],
         ),
         slider,
@@ -267,7 +272,7 @@ class _MiniStat extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: C.muted)),
+        Text(label, style: TextStyle(fontSize: 12, color: C.muted)),
         const SizedBox(height: 3),
         Text(value,
             style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700)),
@@ -281,22 +286,20 @@ class _Alternative extends StatelessWidget {
   final Map<String, dynamic> data;
 
   String get _title => switch (data['code']) {
-        'extend_deadline' => 'সময় বাড়ান',
-        'redirect_cash_out_fees' => 'ক্যাশ-আউট ফি বাঁচিয়ে যোগ করুন',
-        _ => 'খরচ কমান বা সীমা পুনর্বিবেচনা করুন',
+        'extend_deadline' => T.altExtend,
+        'redirect_cash_out_fees' => T.altFees,
+        _ => T.altOther,
       };
 
   String get _detail {
     switch (data['code']) {
       case 'extend_deadline':
-        return 'একই সাপ্তাহিক পরিমাণ রেখে লক্ষ্যের তারিখ '
-            '${bnNum((data['extra_weeks'] as num).toDouble())} সপ্তাহ পেছালে '
-            'লক্ষ্যে পৌঁছানো যাবে।';
+        return T.altExtendBody(num_((data['extra_weeks'] as num).toDouble()));
       case 'redirect_cash_out_fees':
-        return 'ক্যাশ-আউটের বদলে ডিজিটাল পেমেন্ট করলে সপ্তাহে প্রায় '
-            '৳${bnNum((data['extra_weekly'] as num).toDouble())} বাঁচে, '
-            'যা যোগ করলে মোট দাঁড়ায় '
-            '৳${bnNum((data['new_projected_total'] as num).toDouble())}।';
+        return T.altFeesBody(
+          money((data['extra_weekly'] as num).toDouble()),
+          money((data['new_projected_total'] as num).toDouble()),
+        );
       default:
         return '${data['detail'] ?? ''}';
     }
@@ -309,8 +312,8 @@ class _Alternative extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 2),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
             child: Icon(Icons.alt_route, size: 18, color: C.brandDark),
           ),
           const SizedBox(width: 10),
@@ -323,8 +326,8 @@ class _Alternative extends StatelessWidget {
                         fontSize: 14.5, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 3),
                 Text(_detail,
-                    style: const TextStyle(
-                        fontSize: 13.5, color: C.muted, height: 1.5)),
+                    style:
+                        TextStyle(fontSize: 13.5, color: C.muted, height: 1.5)),
               ],
             ),
           ),

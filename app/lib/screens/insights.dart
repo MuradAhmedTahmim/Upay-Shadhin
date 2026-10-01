@@ -7,7 +7,7 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../api.dart';
+import '../i18n.dart';
 import '../theme.dart';
 
 class InsightsScreen extends StatelessWidget {
@@ -17,9 +17,10 @@ class InsightsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cats = (insights['top_categories_30d'] as List).cast<Map<String, dynamic>>();
+    final cats =
+        (insights['top_categories_30d'] as List).cast<Map<String, dynamic>>();
     final leak = insights['leakage'] as Map<String, dynamic>;
-    final narrative = insights['narrative'] as Map<String, dynamic>;
+    final narr = insights['narrative'] as Map<String, dynamic>;
     final total = cats.fold<double>(0, (a, c) => a + (c['amount'] as num).toDouble());
     final habits = (leak['habitual_amounts'] as List?) ?? const [];
     final avoidable = (leak['avoidable_fees_annualised'] as num).toDouble();
@@ -28,75 +29,83 @@ class InsightsScreen extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       children: [
         Panel(
-          title: 'ক্যাশ-আউটে বছরে কত যাচ্ছে',
-          subtitle: 'গত ৯০ দিনের হিসাব থেকে বার্ষিক অনুমান',
+          title: T.leakageTitle,
+          subtitle: T.leakageSubtitle,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('৳${bnNum((leak['fees_annualised'] as num).toDouble())}',
-                  style: const TextStyle(
-                      fontSize: 34, fontWeight: FontWeight.w800, height: 1.1, color: C.risk)),
+              Text(money((leak['fees_annualised'] as num).toDouble()),
+                  style: TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w800,
+                      height: 1.1,
+                      color: C.risk)),
               const SizedBox(height: 4),
-              const Text('শুধু ফি বাবদ, প্রতি বছর',
-                  style: TextStyle(fontSize: 13, color: C.muted)),
+              Text(T.feesOnly, style: TextStyle(fontSize: 13, color: C.muted)),
               const SizedBox(height: 14),
               if (avoidable > 0)
                 StatusNote(
                   icon: Icons.savings_outlined,
                   color: C.safe,
                   background: C.safeBg,
-                  text: 'এর মধ্যে আনুমানিক ৳${bnNum(avoidable)} এড়ানো সম্ভব।',
+                  text: T.avoidableNote(money(avoidable)),
                 ),
               const SizedBox(height: 14),
-              Text(narrative['leakage']['bn'] as String,
+              Text(narrative(narr['leakage'] as Map?),
                   style: const TextStyle(fontSize: 14.5, height: 1.6)),
               if (habits.isNotEmpty) ...[
                 const Divider(height: 28),
-                const Text('নিয়মিত অভ্যাস',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                Text(T.habitsTitle,
+                    style:
+                        const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 10),
                 for (final h in habits.take(3))
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(children: [
-                      const Icon(Icons.repeat, size: 17, color: C.muted),
+                      Icon(Icons.repeat, size: 17, color: C.muted),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          '৳${bnNum((h['amount'] as num).toDouble())} করে '
-                          '${bnNum((h['times'] as num).toDouble())} বার তোলা হয়েছে',
+                          T.habitLine(
+                            money((h['amount'] as num).toDouble()),
+                            num_((h['times'] as num).toDouble()),
+                          ),
                           style: const TextStyle(fontSize: 14),
                         ),
                       ),
-                      Text('৳${bnNum((h['total'] as num).toDouble())}',
-                          style: const TextStyle(
-                              fontSize: 13.5, color: C.muted, fontWeight: FontWeight.w600)),
+                      Text(money((h['total'] as num).toDouble()),
+                          style: TextStyle(
+                              fontSize: 13.5,
+                              color: C.muted,
+                              fontWeight: FontWeight.w600)),
                     ]),
                   ),
               ],
               const Divider(height: 28),
               WhyBlock(
                 reasons: (leak['reasons'] as List?) ?? const [],
-                title: 'এই হিসাব কীভাবে করা হলো?',
+                title: T.howComputed,
               ),
             ],
           ),
         ),
         const SizedBox(height: 14),
         Panel(
-          title: 'গত ৩০ দিনের খরচ',
-          subtitle: 'লেনদেনের ধরন স্বয়ংক্রিয়ভাবে শনাক্ত করা হয়েছে',
+          title: T.spendingTitle,
+          subtitle: T.spendingSubtitle,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               for (final c in cats.take(7))
                 _CategoryBar(
-                  label: c['category_bn'] as String? ?? c['category'] as String,
+                  label: T.category(
+                      c['category'] as String, c['category_bn'] as String?),
                   amount: (c['amount'] as num).toDouble(),
                   share: total > 0 ? (c['amount'] as num).toDouble() / total : 0,
                 ),
               const SizedBox(height: 6),
-              Text(narrative['spending']['bn'] as String,
+              Text(narrative(narr['spending'] as Map?),
                   style: const TextStyle(fontSize: 14.5, height: 1.6)),
             ],
           ),
@@ -107,7 +116,8 @@ class InsightsScreen extends StatelessWidget {
 }
 
 class _CategoryBar extends StatelessWidget {
-  const _CategoryBar({required this.label, required this.amount, required this.share});
+  const _CategoryBar(
+      {required this.label, required this.amount, required this.share});
 
   final String label;
   final double amount;
@@ -125,10 +135,12 @@ class _CategoryBar extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(label,
-                    style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500)),
+                    style: const TextStyle(
+                        fontSize: 14.5, fontWeight: FontWeight.w500)),
               ),
-              Text('৳${bnNum(amount)}',
-                  style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
+              Text(money(amount),
+                  style: const TextStyle(
+                      fontSize: 14.5, fontWeight: FontWeight.w700)),
             ],
           ),
           const SizedBox(height: 7),
@@ -138,7 +150,7 @@ class _CategoryBar extends StatelessWidget {
               value: share.clamp(0, 1),
               minHeight: 7,
               backgroundColor: C.bg,
-              valueColor: const AlwaysStoppedAnimation(C.brand),
+              valueColor: AlwaysStoppedAnimation(C.brand),
             ),
           ),
         ],

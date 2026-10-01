@@ -110,33 +110,3 @@ class ApiClient extends ChangeNotifier {
     return f;
   }
 }
-
-/// Bangla numerals, mirroring nlg/narrator.py so the app and the API agree.
-String bnNum(num value, {int decimals = 0}) {
-  final s = value
-      .toStringAsFixed(decimals)
-      .replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
-  const western = '0123456789';
-  const bengali = '০১২৩৪৫৬৭৮৯';
-  final buf = StringBuffer();
-  for (final ch in s.split('')) {
-    final i = western.indexOf(ch);
-    buf.write(i >= 0 ? bengali[i] : ch);
-  }
-  return buf.toString();
-}
-
-const Map<int, String> bnMonths = {
-  1: 'জানুয়ারি', 2: 'ফেব্রুয়ারি', 3: 'মার্চ', 4: 'এপ্রিল',
-  5: 'মে', 6: 'জুন', 7: 'জুলাই', 8: 'আগস্ট',
-  9: 'সেপ্টেম্বর', 10: 'অক্টোবর', 11: 'নভেম্বর', 12: 'ডিসেম্বর',
-};
-
-String bnDate(String iso) {
-  final parts = iso.split('-');
-  if (parts.length != 3) return iso;
-  final m = int.tryParse(parts[1]);
-  final d = int.tryParse(parts[2]);
-  if (m == null || d == null) return iso;
-  return '${bnNum(d)} ${bnMonths[m] ?? ''}';
-}

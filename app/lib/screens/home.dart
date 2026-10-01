@@ -9,7 +9,7 @@ library;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import '../api.dart';
+import '../i18n.dart';
 import '../theme.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -24,7 +24,7 @@ class HomeScreen extends StatelessWidget {
     final balance = (forecast['balance_today'] as num).toDouble();
     final floor = (forecast['safety_floor'] as num).toDouble();
     final risk = forecast['risk_window'] as Map<String, dynamic>?;
-    final narrative = forecast['narrative'] as Map<String, dynamic>;
+    final narr = forecast['narrative'] as Map<String, dynamic>;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -33,50 +33,44 @@ class HomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('বর্তমান ব্যালেন্স',
+              Text(T.currentBalance,
                   style: TextStyle(fontSize: 14, color: C.muted)),
               const SizedBox(height: 6),
-              Text('৳${bnNum(balance)}',
+              Text(money(balance),
                   style: const TextStyle(
                       fontSize: 38, fontWeight: FontWeight.w800, height: 1.1)),
               const SizedBox(height: 6),
               Text(
-                'নিরাপত্তা সীমা ৳${bnNum(floor)}  •  ${bnDate(forecast['as_of'] as String)} পর্যন্ত হিসাব',
-                style: const TextStyle(fontSize: 13, color: C.muted),
+                T.floorAndAsOf(money(floor), date_(forecast['as_of'] as String)),
+                style: TextStyle(fontSize: 13, color: C.muted),
               ),
             ],
           ),
         ),
         const SizedBox(height: 14),
-        if (risk != null)
-          StatusNote(
-            icon: Icons.warning_amber_rounded,
-            color: C.risk,
-            background: C.riskBg,
-            text: narrative['risk']['bn'] as String,
-          )
-        else
-          StatusNote(
-            icon: Icons.check_circle_outline,
-            color: C.safe,
-            background: C.safeBg,
-            text: narrative['risk']['bn'] as String,
-          ),
+        StatusNote(
+          icon: risk != null
+              ? Icons.warning_amber_rounded
+              : Icons.check_circle_outline,
+          color: risk != null ? C.risk : C.safe,
+          background: risk != null ? C.riskBg : C.safeBg,
+          text: narrative(narr['risk'] as Map?),
+        ),
         const SizedBox(height: 14),
         Panel(
-          title: 'আগামী ৩০ দিনের পূর্বাভাস',
-          subtitle: 'ছায়া অংশ = সম্ভাব্য সীমা (P10–P90)',
+          title: T.forecastTitle,
+          subtitle: T.forecastSubtitle,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
                 height: 230,
-                child: _ForecastChart(path: path, floor: floor, risk: risk),
+                child: _ForecastChart(path: path, floor: floor),
               ),
               const SizedBox(height: 14),
               const _Legend(),
               const SizedBox(height: 14),
-              Text(narrative['forecast']['bn'] as String,
+              Text(narrative(narr['forecast'] as Map?),
                   style: const TextStyle(fontSize: 14.5, height: 1.6)),
               const Divider(height: 28),
               WhyBlock(reasons: (forecast['reasons'] as List?) ?? const []),
@@ -85,21 +79,21 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         Panel(
-          title: 'গত ৩০ দিনে',
+          title: T.last30,
           child: Row(
             children: [
               Expanded(
                 child: _Stat(
-                  label: 'মোট আয়',
-                  value: '৳${bnNum((profile['inflow_last_30d'] as num).toDouble())}',
+                  label: T.totalIn,
+                  value: money((profile['inflow_last_30d'] as num).toDouble()),
                   color: C.safe,
                 ),
               ),
               Container(width: 1, height: 44, color: C.line),
               Expanded(
                 child: _Stat(
-                  label: 'মোট খরচ',
-                  value: '৳${bnNum((profile['outflow_last_30d'] as num).toDouble())}',
+                  label: T.totalOut,
+                  value: money((profile['outflow_last_30d'] as num).toDouble()),
                   color: C.risk,
                 ),
               ),
@@ -109,7 +103,7 @@ class HomeScreen extends StatelessWidget {
         const SizedBox(height: 14),
         Text(
           forecast['disclaimer'] as String? ?? '',
-          style: const TextStyle(fontSize: 12, color: C.muted, height: 1.5),
+          style: TextStyle(fontSize: 12, color: C.muted, height: 1.5),
         ),
       ],
     );
@@ -126,7 +120,7 @@ class _Stat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(fontSize: 13, color: C.muted)),
+        Text(label, style: TextStyle(fontSize: 13, color: C.muted)),
         const SizedBox(height: 4),
         Text(value,
             style: TextStyle(
@@ -144,10 +138,10 @@ class _Legend extends StatelessWidget {
     return Wrap(
       spacing: 16,
       runSpacing: 8,
-      children: const [
-        _LegendItem(color: C.brand, label: 'সম্ভাব্য ব্যালেন্স'),
-        _LegendItem(color: C.band, label: 'অনিশ্চয়তার সীমা'),
-        _LegendItem(color: C.risk, label: 'নিরাপত্তা সীমা'),
+      children: [
+        _LegendItem(color: C.brand, label: T.legendExpected),
+        _LegendItem(color: C.band, label: T.legendBand),
+        _LegendItem(color: C.risk, label: T.legendFloor),
       ],
     );
   }
@@ -170,26 +164,32 @@ class _LegendItem extends StatelessWidget {
               BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
         ),
         const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 12.5, color: C.muted)),
+        Text(label, style: TextStyle(fontSize: 12.5, color: C.muted)),
       ],
     );
   }
 }
 
 class _ForecastChart extends StatelessWidget {
-  const _ForecastChart({required this.path, required this.floor, this.risk});
+  const _ForecastChart({required this.path, required this.floor});
 
   final List<Map<String, dynamic>> path;
   final double floor;
-  final Map<String, dynamic>? risk;
 
   double _v(Map<String, dynamic> p, String k) => (p[k] as num).toDouble();
 
   @override
   Widget build(BuildContext context) {
-    final lows = [for (var i = 0; i < path.length; i++) FlSpot(i.toDouble(), _v(path[i], 'low'))];
-    final highs = [for (var i = 0; i < path.length; i++) FlSpot(i.toDouble(), _v(path[i], 'high'))];
-    final mids = [for (var i = 0; i < path.length; i++) FlSpot(i.toDouble(), _v(path[i], 'expected'))];
+    final lows = [
+      for (var i = 0; i < path.length; i++) FlSpot(i.toDouble(), _v(path[i], 'low'))
+    ];
+    final highs = [
+      for (var i = 0; i < path.length; i++) FlSpot(i.toDouble(), _v(path[i], 'high'))
+    ];
+    final mids = [
+      for (var i = 0; i < path.length; i++)
+        FlSpot(i.toDouble(), _v(path[i], 'expected'))
+    ];
 
     final allY = [
       for (final p in path) ...[_v(p, 'low'), _v(p, 'high'), _v(p, 'expected')],
@@ -209,8 +209,7 @@ class _ForecastChart extends StatelessWidget {
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          getDrawingHorizontalLine: (_) =>
-              const FlLine(color: C.line, strokeWidth: 1),
+          getDrawingHorizontalLine: (_) => FlLine(color: C.line, strokeWidth: 1),
         ),
         borderData: FlBorderData(show: false),
         titlesData: FlTitlesData(
@@ -221,8 +220,8 @@ class _ForecastChart extends StatelessWidget {
               showTitles: true,
               reservedSize: 52,
               getTitlesWidget: (v, _) => Text(
-                '${bnNum(v / 1000)}k',
-                style: const TextStyle(fontSize: 10.5, color: C.muted),
+                '${num_(v / 1000)}k',
+                style: TextStyle(fontSize: 10.5, color: C.muted),
               ),
             ),
           ),
@@ -236,8 +235,8 @@ class _ForecastChart extends StatelessWidget {
                 if (i < 0 || i >= path.length) return const SizedBox.shrink();
                 return Padding(
                   padding: const EdgeInsets.only(top: 6),
-                  child: Text(bnDate(path[i]['date'] as String),
-                      style: const TextStyle(fontSize: 10, color: C.muted)),
+                  child: Text(date_(path[i]['date'] as String),
+                      style: TextStyle(fontSize: 10, color: C.muted)),
                 );
               },
             ),
@@ -257,7 +256,7 @@ class _ForecastChart extends StatelessWidget {
               for (final s in spots)
                 if (s.barIndex == 2)
                   LineTooltipItem(
-                    '${bnDate(path[s.x.toInt()]['date'] as String)}\n৳${bnNum(s.y)}',
+                    '${date_(path[s.x.toInt()]['date'] as String)}\n${money(s.y)}',
                     const TextStyle(
                         color: Colors.white,
                         fontSize: 12.5,

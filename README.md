@@ -207,6 +207,18 @@ working and a banner says so — serving captured data as if it were live would 
 dishonest. The Goal screen additionally warns that a fixture result does not reflect the
 sliders.
 
+**Dark mode and English/Bangla**, both toggled from the navbar:
+
+- The language switch changes the *content*, not only the chrome: the API returns every
+  generated explanation as `{"bn": ..., "en": ...}`, and numerals follow the language
+  (৳১২,৩৫০ / BDT 12,350). Bangla is the default.
+- The dark palette is not the light one inverted. Saturated accents vibrate on a dark
+  background, so each is lightened and desaturated, and the tinted status strips become
+  low-alpha washes instead of pale pastels.
+- Both palettes are **contrast-tested**: a unit test asserts WCAG AA (4.5:1 for body
+  text, 3:1 for secondary) on every surface in both themes. It caught two real failures
+  in the light palette that had already shipped.
+
 ---
 
 ## AI Components — where AI is actually used
@@ -463,12 +475,13 @@ avoidable for a customer with no digital spend.
 ```bash
 cd app
 flutter analyze              # expect: No issues found!
-flutter test                 # 9 tests
+flutter test                 # 22 tests
 ```
 
-The Bangla numeral and date helpers are tested directly because the same formatting also
+The number and date formatters are tested directly because the same formatting also
 exists in `nlg/narrator.py` on the server — if the two drift, the app and the API would
-render the same amount differently.
+render the same amount differently on the same screen. The suite also asserts WCAG AA
+contrast for every text-on-surface pair in both the light and dark palettes.
 
 ### 6. Manual end-to-end check
 
